@@ -1,5 +1,5 @@
 """
-Validador de Perfis de Empresas (look2agro)
+Validador de Perfis de Empresas
 -------------------------------------------
 Lê a planilha-base, acessa o website de cada empresa, classifica o status
 e gera uma nova planilha Excel (com aba de resumo + gráfico) e um PNG do gráfico.
@@ -27,8 +27,8 @@ from openpyxl.chart.label import DataLabelList
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-TIMEOUT = 10  # segundos
-HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; look2agro-validator/1.0)"}
+TIMEOUT = 10
+HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; validator/1.0)"}
 
 ST_INATIVO = "Site Inativo / Verificar"
 ST_OK = "Ativo - Nome confere"
@@ -39,8 +39,7 @@ ST_SEM_SITE = "Sem Website / Verificar"
 STOPWORDS = {"ltda", "sa", "s", "a", "me", "epp", "de", "da", "do", "das", "dos", "e",
              "brasil", "brazil", "grupo", "cia", "company", "inc", "ltd", "the"}
 
-
-# ---------------------------------------------------------------- utilidades
+# utilidades
 def normalizar(txt: str) -> str:
     txt = unicodedata.normalize("NFKD", str(txt)).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9 ]", " ", txt.lower())
@@ -72,7 +71,7 @@ def limpar_url(url) -> str:
     return url
 
 
-# ---------------------------------------------------------------- consulta HTTP
+# consulta HTTP
 def consultar_real(url: str):
     """Retorna (codigo_http, titulo, erro)."""
     try:
@@ -89,7 +88,7 @@ def consultar_real(url: str):
         return None, "", f"Erro: {type(e).__name__}"
 
 
-# Respostas simuladas (apenas para --demo; NÃO são resultados reais)
+# Respostas simuladas para o --demo
 DEMO = {
     "www.embrapa.br": (200, "Embrapa - Empresa Brasileira de Pesquisa Agropecuária", None),
     "www.syngenta.com.br": (200, "Syngenta Brasil | Soluções para o agro", None),
@@ -115,7 +114,7 @@ def consultar_demo(url: str):
     return DEMO.get(chave, (None, "", "Falha de conexão / DNS"))
 
 
-# ---------------------------------------------------------------- classificação
+# classificação
 def verificar_linha(nome: str, url_original, consultar):
     url = limpar_url(url_original)
     if not url:
@@ -137,7 +136,7 @@ def verificar_linha(nome: str, url_original, consultar):
                 obs="Título da página não contém o nome da empresa")
 
 
-# ---------------------------------------------------------------- saídas
+# saídas
 def gerar_grafico_png(df: pd.DataFrame, caminho: str, demo: bool):
     ativas = df["Status_Verificação"].str.startswith("Ativo").sum()
     inativas = len(df) - ativas
@@ -179,11 +178,11 @@ def formatar_excel(caminho: str, demo: bool):
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
 
-    # ---- aba Resumo (fórmulas + gráfico nativo do Excel)
+    # aba Resumo (fórmulas + gráfico nativo do Excel)
     rs = wb.create_sheet("Resumo")
     n = ws.max_row
     rng = f"Resultados!$D$2:$D${n}"
-    rs["A1"] = "Resumo da verificação de websites - look2agro"
+    rs["A1"] = "Resumo da verificação de websites"
     rs["A1"].font = Font(name="Arial", size=13, bold=True)
     rs["A2"] = "Gerado em: " + datetime.now().strftime("%d/%m/%Y %H:%M") + (
         "  |  ATENÇÃO: MODO DEMONSTRAÇÃO (respostas HTTP simuladas)" if demo else "")
@@ -231,11 +230,11 @@ def formatar_excel(caminho: str, demo: bool):
     wb.save(caminho)
 
 
-# ---------------------------------------------------------------- principal
+# principal
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("-i", "--entrada", default="look2agro_base_exemplo.xlsx")
-    ap.add_argument("-o", "--saida", default="look2agro_resultado_verificacao.xlsx")
+    ap.add_argument("-i", "--entrada", default="base_exemplo.xlsx")
+    ap.add_argument("-o", "--saida", default="resultado_verificacao.xlsx")
     ap.add_argument("--demo", action="store_true", help="usa respostas HTTP simuladas")
     ap.add_argument("--workers", type=int, default=10)
     args = ap.parse_args()
