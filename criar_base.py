@@ -1,4 +1,4 @@
-"""Cria uma planilha-exemplo simulando um extrato da base look2agro."""
+"""Cria uma planilha-exemplo."""
 import pandas as pd
 
 dados = [
@@ -26,5 +26,5 @@ dados = [
 
 df = pd.DataFrame(dados, columns=["Nome da Empresa", "Website", "País"])
 df["Status_Verificação"] = "Pendente"
-df.to_excel("look2agro_base_exemplo.xlsx", index=False)
+df.to_excel("base_exemplo.xlsx", index=False)
 print(f"Base criada com {len(df)} empresas.")
