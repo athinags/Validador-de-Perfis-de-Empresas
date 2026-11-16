@@ -12,7 +12,6 @@ Automação em Python que verifica se os websites de uma base de empresas ainda 
 - [Como usar](#como-usar)
 - [Regras de classificação](#regras-de-classificação)
 - [Saídas geradas](#saídas-geradas)
-- [Resultado da simulação](#resultado-da-simulação)
 - [Limitações conhecidas](#limitações-conhecidas)
 - [Tecnologias](#tecnologias)
 
@@ -52,22 +51,16 @@ pip install pandas requests openpyxl matplotlib
 
 ## Como usar
 
-**1. Criar a base de exemplo** (opcional, se você já tiver sua própria planilha):
+**1. Criar a base de exemplo**:
 
 ```bash
 python criar_base.py
 ```
 
-**2. Rodar a verificação real** (precisa de internet):
+**2. Rodar a verificação**:
 
 ```bash
 python verificar_sites.py
-```
-
-**3. Rodar em modo demonstração** (sem internet, com respostas simuladas):
-
-```bash
-python verificar_sites.py --demo
 ```
 
 ### Opções da linha de comando
@@ -76,7 +69,6 @@ python verificar_sites.py --demo
 |---|---|---|
 | `-i`, `--entrada` | Planilha de entrada | `base_exemplo.xlsx` |
 | `-o`, `--saida` | Planilha de saída | `resultado_verificacao.xlsx` |
-| `--demo` | Usa respostas HTTP simuladas | desligado |
 | `--workers` | Número de verificações simultâneas | `10` |
 
 ### Formato esperado da planilha de entrada
@@ -109,19 +101,6 @@ Sites com acesso restrito não são marcados como inativos de propósito: o serv
 - **Aba `Resultados`:** a base original mais as colunas `Código_HTTP`, `Título_da_Página`, `Observação` e `Data_Verificação`. Os status são coloridos, com filtro e cabeçalho fixo.
 
 **Gráfico PNG** (`..._grafico.png`): barras de empresas ativas vs. inativas, feito com matplotlib.
-
-## Resultado da simulação
-
-> **Atenção:** os números abaixo vêm do **modo `--demo`**, com respostas HTTP simuladas. Não representam o estado real desses sites. Para dados reais, rode o script sem `--demo`.
-
-Base de 20 empresas:
-
-| Categoria | Quantidade | % |
-|---|---|---|
-| Ativas | 13 | 65% |
-| Inativas / a verificar | 7 | 35% |
-
-Detalhamento: 11 com nome confere, 1 com nome divergente, 1 com acesso restrito, 6 inativos e 1 sem website.
 
 ## Limitações conhecidas
 
