@@ -3,12 +3,8 @@ Validador de Perfis de Empresas
 -------------------------------------------
 Lê a planilha-base, acessa o website de cada empresa, classifica o status
 e gera uma nova planilha Excel (com aba de resumo + gráfico) e um PNG do gráfico.
-
-Uso:
-    python verificar_sites.py                  # verificação real (precisa de internet)
-    python verificar_sites.py --demo           # respostas simuladas (para testar sem internet)
-    python verificar_sites.py -i base.xlsx -o resultado.xlsx
 """
+
 import argparse
 import html
 import re
@@ -87,40 +83,13 @@ def consultar_real(url: str):
     except requests.exceptions.RequestException as e:
         return None, "", f"Erro: {type(e).__name__}"
 
-
-# Respostas simuladas para o --demo
-DEMO = {
-    "www.embrapa.br": (200, "Embrapa - Empresa Brasileira de Pesquisa Agropecuária", None),
-    "www.syngenta.com.br": (200, "Syngenta Brasil | Soluções para o agro", None),
-    "www.agro.basf.com.br": (403, "", None),
-    "www.cropscience.bayer.com.br": (200, "Bayer Crop Science Brasil", None),
-    "www.corteva.com.br": (200, "Corteva Agriscience Brasil", None),
-    "www.deere.com.br": (200, "John Deere Brasil | Máquinas agrícolas", None),
-    "www.yara.com.br": (200, "Yara Brasil - Fertilizantes e nutrição de plantas", None),
-    "www.nutrien.com": (200, "Nutrien | Feeding the Future", None),
-    "www.cargill.com.br": (200, "Cargill Brasil", None),
-    "www.bunge.com.br": (200, "Bunge Brasil", None),
-    "www.biocerescrops.com": (200, "Bioceres Crop Solutions", None),
-    "nufarm.com": (200, "Welcome", None),
-    "httpbin.org/status/404": (404, "", None),
-    "httpbin.org/status/500": (500, "", None),
-    "httpbin.org/delay/15": (None, "", "Timeout"),
-    "example.com": (200, "Example Domain", None),
-}
-
-
-def consultar_demo(url: str):
-    chave = re.sub(r"^https?://", "", url).rstrip("/")
-    return DEMO.get(chave, (None, "", "Falha de conexão / DNS"))
-
-
 # classificação
-def verificar_linha(nome: str, url_original, consultar):
+def verificar_linha(nome: str, url_original):
     url = limpar_url(url_original)
     if not url:
         return dict(status=ST_SEM_SITE, codigo=None, titulo="", obs="Website não informado")
 
-    codigo, titulo, erro = consultar(url)
+    codigo, titulo, erro = consultar_real(url)
 
     if erro:
         return dict(status=ST_INATIVO, codigo=None, titulo="", obs=erro)
@@ -137,7 +106,7 @@ def verificar_linha(nome: str, url_original, consultar):
 
 
 # saídas
-def gerar_grafico_png(df: pd.DataFrame, caminho: str, demo: bool):
+def gerar_grafico_png(df: pd.DataFrame, caminho: str):
     ativas = df["Status_Verificação"].str.startswith("Ativo").sum()
     inativas = len(df) - ativas
     fig, ax = plt.subplots(figsize=(6, 4.2))
@@ -145,15 +114,14 @@ def gerar_grafico_png(df: pd.DataFrame, caminho: str, demo: bool):
                     color=["#2E7D32", "#C62828"])
     ax.bar_label(barras, fontsize=12, fontweight="bold")
     ax.set_ylabel("Nº de empresas")
-    titulo = "Empresas com website ativo vs. inativo"
-    ax.set_title(titulo + (" (DADOS SIMULADOS)" if demo else ""), fontsize=11)
+    ax.set_title("Empresas com website ativo vs. inativo", fontsize=11)
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     fig.savefig(caminho, dpi=150)
     plt.close(fig)
 
 
-def formatar_excel(caminho: str, demo: bool):
+def formatar_excel(caminho: str):
     wb = load_workbook(caminho)
     ws = wb["Resultados"]
     fonte = Font(name="Arial", size=10)
@@ -184,30 +152,38 @@ def formatar_excel(caminho: str, demo: bool):
     rng = f"Resultados!$D$2:$D${n}"
     rs["A1"] = "Resumo da verificação de websites"
     rs["A1"].font = Font(name="Arial", size=13, bold=True)
-    rs["A2"] = "Gerado em: " + datetime.now().strftime("%d/%m/%Y %H:%M") + (
-        "  |  ATENÇÃO: MODO DEMONSTRAÇÃO (respostas HTTP simuladas)" if demo else "")
-    rs["A2"].font = Font(name="Arial", size=9, italic=True, color="C62828" if demo else "555555")
+    rs["A2"] = "Gerado em: " + datetime.now().strftime("%d/%m/%Y %H:%M")
+    rs["A2"].font = Font(name="Arial", size=9, italic=True, color="555555")
 
     # Bloco 1: ativas vs. inativas (alimenta o gráfico)
     rs["A4"], rs["B4"] = "Total de empresas", f"=COUNTA(Resultados!$A$2:$A${n})"
     rs["A6"], rs["B6"], rs["C6"] = "Categoria", "Nº de empresas", "% do total"
     rs["A7"], rs["B7"] = "Ativas", f'=COUNTIF({rng},"Ativo*")'
     rs["A8"], rs["B8"] = "Inativas / A verificar", "=B4-B7"
+    
+    
     # Bloco 2: detalhamento por status
     rs["A10"], rs["B10"], rs["C10"] = "Detalhamento por status", "Nº de empresas", "% do total"
+
     detalhes = [ST_OK, ST_DIVERGENTE, ST_RESTRITO, ST_INATIVO, ST_SEM_SITE]
+
     for i, st in enumerate(detalhes, start=11):
         rs[f"A{i}"], rs[f"B{i}"] = st, f'=COUNTIF({rng},"{st}")'
+
     for r in [7, 8] + list(range(11, 11 + len(detalhes))):
         rs[f"C{r}"] = f"=IF($B$4=0,0,B{r}/$B$4)"
         rs[f"C{r}"].number_format = "0.0%"
+
     for row in rs.iter_rows(min_row=4, max_row=15):
         for cel in row:
             cel.font = Font(name="Arial", size=10)
+
     rs["A4"].font = rs["B4"].font = Font(name="Arial", size=10, bold=True)
+
     for cel in ("A6", "B6", "C6", "A10", "B10", "C10"):
         rs[cel].font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
         rs[cel].fill = cab_fill
+        
     rs.column_dimensions["A"].width = 48
     rs.column_dimensions["B"].width = 16
     rs.column_dimensions["C"].width = 12
@@ -235,15 +211,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-i", "--entrada", default="base_exemplo.xlsx")
     ap.add_argument("-o", "--saida", default="resultado_verificacao.xlsx")
-    ap.add_argument("--demo", action="store_true", help="usa respostas HTTP simuladas")
     ap.add_argument("--workers", type=int, default=10)
     args = ap.parse_args()
 
-    consultar = consultar_demo if args.demo else consultar_real
     df = pd.read_excel(args.entrada)
 
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        res = list(ex.map(lambda r: verificar_linha(r["Nome da Empresa"], r["Website"], consultar),
+        res = list(ex.map(lambda r: verificar_linha(r["Nome da Empresa"], r["Website"]),
                           df.to_dict("records")))
 
     df["Status_Verificação"] = [r["status"] for r in res]
@@ -253,9 +227,9 @@ def main():
     df["Data_Verificação"] = datetime.now().strftime("%d/%m/%Y")
 
     df.to_excel(args.saida, index=False, sheet_name="Resultados")
-    formatar_excel(args.saida, args.demo)
+    formatar_excel(args.saida)
     png = args.saida.replace(".xlsx", "_grafico.png")
-    gerar_grafico_png(df, png, args.demo)
+    gerar_grafico_png(df, png)
 
     print(df["Status_Verificação"].value_counts().to_string())
     print(f"\nArquivos gerados:\n - {args.saida}\n - {png}")
